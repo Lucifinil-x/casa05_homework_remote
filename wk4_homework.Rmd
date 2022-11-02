@@ -1,0 +1,10 @@
+---
+title: "wk4_homework"
+output: html_document
+date: "2022-11-02"
+---
+
+```{r}
+
+```
+
