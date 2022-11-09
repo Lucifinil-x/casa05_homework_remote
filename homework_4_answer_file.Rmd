@@ -1,0 +1,142 @@
+# Ineqaulity task - week 4
+
+### Read in data:
+
+Located within the Data folder:
+
+-   HDI data from: <https://hdr.undp.org/data-center/documentation-and-downloads>
+-   Shapefile from: <https://hub.arcgis.com/datasets/2b93b06dc0dc4e809d3c8db5cb96ba69_0/explore?location=-2.688200%2C0.000000%2C1.41>
+
+### task
+
+The task this week is to:
+
+-   Read in global gender inequality data
+-   Join the global gender inequality index to spatial data of the World, creating a new column of difference in inequality between 2010 and 2019
+-   Share it with the World on GitHub
+-   Add you repository URL to the circulated spreadsheet
+
+Tip the countrycode R package will be helpful!
+
+Tip the gender inequality has changed in the last year, you will find what you need in the "All composite indices and components time series (1990-2021)" dataset, the metadata file beneath it will explain what the columns are.
+- 在全球性别不平等数据中阅读
+- 将全球性别不平等指数加入到《世界》的空间数据中，创建一个新的2010年和2019年之间的不平等差异列
+- 在GitHub上与世界分享它
+- 在分发的电子表格中加入你的存储库网址
+
+提示 countrycode R包会有帮助!
+
+提示性别不平等在去年发生了变化，你会在 "所有综合指数和成分时间序列（1990-2021）"数据集中找到你需要的东西，它下面的元数据文件会解释这些列是什么。
+## Load packages
+
+```{r}
+# install.packages("countrycode")
+```
+
+```{r}
+library(tidyverse)
+library(sf)
+library(here)
+library(janitor)
+library(countrycode)
+```
+
+```{r warning=FALSE}
+# HDI读入的是世界206个国家性别不平等的指数，在1990-2021年
+HDI <- read_csv(here::here("wk4_dataset", "HDR21-22_Composite_indices_complete_time_series.csv"),
+                       locale = locale(encoding = "latin1"),
+                       na = " ", skip=0)
+
+
+# world读入.shp矢量表。有251个国家的长度，面积，地理坐标
+World <- st_read(here::here("wk4_dataset", "World_Countries_(Generalized)", "World_Countries__Generalized_.shp"))
+
+# 相对路径用 /连接
+# World <- st_read("homework_4/World_Countries_(Generalized)/World_Countries__Generalized_.shp")
+```
+
+## Column names
+
+Select columns we want and change country name to country code, using the `countrycode` package
+
+We could also just join it without this on the country name column
+
+Some notes:
+
+-   COW codes = correlates of war codes
+-   ISO = International Organization for Standardization with 2 or 3 letters...
+选择我们想要的列并将国家名称改为国家代码，使用`countrycode`包
+
+我们也可以不在国名列上这样做，直接加入它
+
+一些说明。
+
+- COW代码=战争代码的相关者
+- ISO = 国际标准化国家名字的英文缩写，有2或3个字母...
+```{r}
+# HDI_mutate1<- HDI %>%
+#   clean_names()%>%
+#   select(iso3, country, gii_2019, gii_2010)%>%
+#   mutate(difference=gii_2019-gii_2010)%>%
+#   #not needed here as we can now use the country name...but see below
+#   mutate(iso_code=countrycode(country, origin = 'country.name', destination = 'iso2c'))%>%
+#   mutate(iso_code2=countrycode(iso3, origin ='iso3c', destination = 'iso2c'))
+```
+
+
+```{r}
+HDIcols<- HDI %>%
+  clean_names()%>%
+  select(iso3, country, gii_2019, gii_2010)%>%
+  mutate(difference=gii_2019-gii_2010)%>%
+  #not needed here as we can now use the country name...but see below
+   # 增加一列列名为iso_code，值为：将country列的name转换成iso2c的标准（两个字符）
+   # 增加一列列名为iso_code2，值为：将iso3列转换成iso3c的标准（三个字符）
+  # iso_code和iso_code2列的值一样
+  mutate(iso_code=countrycode(country, origin = 'country.name', destination = 'iso2c'))%>%
+  mutate(iso_code2=countrycode(iso3, origin ='iso3c', destination = 'iso2c'))
+
+  
+```
+
+## Join
+
+Join the csv to world shape file
+
+```{r}
+Join_HDI <- World %>% 
+  clean_names() %>%
+  left_join(., 
+            HDIcols,
+            by = c("iso" = "iso_code"))
+
+# 261 if using "aff_iso", 251 if using "iso". Could filter out the NA values.因为用aff_iso=iso_code做左连接，aff_iso有十行都是na,连不上右表，但是会保留这aff_iso=na的十行
+```
+
+```{r}
+# world仍然要clean_names()因为上面使用clean_names()时候并没有赋值world
+Join_HDI_2 <- World %>% 
+  clean_names() %>%
+  left_join(., 
+            HDIcols,
+            by = c("country" = "country"))
+#251
+
+```
+
+# Problems
+
+-   With Join_HDI there are 11 rows for Antarctica if using aff_iso - be sure to use iso column or remove the NA values as in the aff_iso Antarctica is NA
+-   With Join_HDI_2 the entries for other islands aren't joined as they don't have the same name...e.g. France, French Guiana, French Southern Territories.....
+- 在Join_HDI中，如果使用aff_iso，南极洲有11行 - 确保使用iso列或删除NA值，因为在aff_iso中，南极洲是NA。
+- 使用Join_HDI_2，其他岛屿的条目没有被加入，因为它们没有相同的名字......例如：法国，法属圭亚那，法属南方领土.....。
+
+```{r}
+Join_HDI_FR<-Join_HDI %>%
+  filter(aff_iso=="FR")
+
+Join_HDI_2_FR<-Join_HDI_2 %>%
+  filter(aff_iso=="FR")
+```
+
+...next time we will make a map using different repos
